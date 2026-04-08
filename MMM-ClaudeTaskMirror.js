@@ -9,10 +9,21 @@ Module.register("MMM-ClaudeTaskMirror", {
 		microsoftTokensPath: "",
 		taskListName: null, // null = all lists
 
-		// Claude AI
+		// AI Provider: "claude-web" (default), "claude-api", "ollama"
+		aiProvider: "claude-web",
+
+		// Claude Web (uses your claude.ai login - run 'npm run auth:claude')
+		claudeWebModel: "claude-sonnet-4-20250514",
+		claudeSessionPath: "",
+
+		// Claude API (optional - pay-per-use with API key)
 		anthropicApiKey: "",
-		claudeModel: "claude-haiku-4-5-20251001",
+		claudeApiModel: "claude-haiku-4-5-20251001",
 		claudeMaxTokens: 1024,
+
+		// Ollama (optional - free local LLM)
+		ollamaUrl: "http://localhost:11434",
+		ollamaModel: "llama3.2",
 
 		// Display
 		maxTasks: 10,

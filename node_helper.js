@@ -1,6 +1,8 @@
 const NodeHelper = require("node_helper");
 const MicrosoftTodoService = require("./services/microsoft-todo");
+const ClaudeWebService = require("./services/claude-web");
 const ClaudeAIService = require("./services/claude-ai");
+const OllamaAIService = require("./services/ollama-ai");
 const path = require("path");
 
 module.exports = NodeHelper.create({
@@ -42,6 +44,36 @@ module.exports = NodeHelper.create({
 		}
 	},
 
+	createAIService: function (config) {
+		const provider = config.aiProvider || "claude-web";
+
+		switch (provider) {
+			case "claude-web":
+				return new ClaudeWebService({
+					model: config.claudeWebModel || "claude-sonnet-4-20250514",
+					sessionPath: config.claudeSessionPath || path.join(__dirname, "claude-session.json")
+				});
+
+			case "claude-api":
+				if (!config.anthropicApiKey) return null;
+				return new ClaudeAIService({
+					apiKey: config.anthropicApiKey,
+					model: config.claudeApiModel || "claude-haiku-4-5-20251001",
+					maxTokens: config.claudeMaxTokens || 1024
+				});
+
+			case "ollama":
+				return new OllamaAIService({
+					baseUrl: config.ollamaUrl || "http://localhost:11434",
+					model: config.ollamaModel || "llama3.2"
+				});
+
+			default:
+				console.error(`[MMM-ClaudeTaskMirror] Unknown AI provider: ${provider}`);
+				return null;
+		}
+	},
+
 	initModule: function (config) {
 		if (this.started) return;
 		this.started = true;
@@ -54,14 +86,11 @@ module.exports = NodeHelper.create({
 			tokensPath: config.microsoftTokensPath || path.join(__dirname, "tokens.json")
 		});
 
-		// Initialize Claude AI service
-		if (config.anthropicApiKey) {
-			this.aiService = new ClaudeAIService({
-				apiKey: config.anthropicApiKey,
-				model: config.claudeModel || "claude-haiku-4-5-20251001",
-				maxTokens: config.claudeMaxTokens || 1024
-			});
+		// Initialize AI service based on provider
+		this.aiService = this.createAIService(config);
+		if (this.aiService) {
 			this.aiService.loadHistory();
+			console.log(`[MMM-ClaudeTaskMirror] AI provider: ${config.aiProvider || "claude-web"}`);
 		}
 
 		// Initial fetch
@@ -120,7 +149,7 @@ module.exports = NodeHelper.create({
 		if (!this.aiService) {
 			this.sendSocketNotification("ERROR", {
 				type: "AI_NOT_CONFIGURED",
-				message: "Claude AI is not configured. Add anthropicApiKey to config."
+				message: "No AI provider configured. Run 'npm run auth:claude' or set aiProvider in config."
 			});
 			return;
 		}

@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest --verbose",
     "test:watch": "jest --watch",
-    "auth": "node auth-setup.js",
+    "auth:microsoft": "node auth-setup.js",
+    "auth:claude": "node auth-claude.js",
     "lint": "eslint ."
   },
   "keywords": [

@@ -1,5 +1,6 @@
 node_modules/
 tokens.json
+claude-session.json
 data/task-history.json
 data/
 .env

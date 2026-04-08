@@ -1,7 +1,6 @@
 const path = require("path");
 
 // --- Mock MagicMirror's node_helper base ---
-// MagicMirror's node_helper module isn't available in test, so we mock it.
 const mockSendSocketNotification = jest.fn();
 
 jest.mock("node_helper", () => ({
@@ -15,24 +14,52 @@ jest.mock("node_helper", () => ({
 	}
 }), { virtual: true });
 
-// Mock the services
+// Mock all AI services
 jest.mock("../services/microsoft-todo");
+jest.mock("../services/claude-web");
 jest.mock("../services/claude-ai");
+jest.mock("../services/ollama-ai");
 
 const MicrosoftTodoService = require("../services/microsoft-todo");
+const ClaudeWebService = require("../services/claude-web");
 const ClaudeAIService = require("../services/claude-ai");
+const OllamaAIService = require("../services/ollama-ai");
+
+// --- Mock AI service factory ---
+function mockAIService(overrides) {
+	return {
+		generateInsights: jest.fn().mockResolvedValue(MOCK_INSIGHTS),
+		loadHistory: jest.fn(),
+		recordTaskSnapshot: jest.fn(),
+		...overrides
+	};
+}
 
 // --- Mock Data ---
-const MOCK_CONFIG = {
+const MOCK_CONFIG_WEB = {
 	microsoftClientId: "test-client-id",
 	microsoftClientSecret: "test-client-secret",
 	microsoftTokensPath: "/tmp/test-tokens.json",
-	anthropicApiKey: "test-anthropic-key",
-	claudeModel: "claude-haiku-4-5-20251001",
-	claudeMaxTokens: 1024,
+	aiProvider: "claude-web",
+	claudeWebModel: "claude-sonnet-4-20250514",
 	taskListName: "Tasks",
 	taskUpdateInterval: 300000,
 	insightUpdateInterval: 1800000
+};
+
+const MOCK_CONFIG_API = {
+	...MOCK_CONFIG_WEB,
+	aiProvider: "claude-api",
+	anthropicApiKey: "test-anthropic-key",
+	claudeApiModel: "claude-haiku-4-5-20251001",
+	claudeMaxTokens: 1024
+};
+
+const MOCK_CONFIG_OLLAMA = {
+	...MOCK_CONFIG_WEB,
+	aiProvider: "ollama",
+	ollamaUrl: "http://localhost:11434",
+	ollamaModel: "llama3.2"
 };
 
 const MOCK_TASKS = [
@@ -69,19 +96,15 @@ describe("node_helper", () => {
 		jest.clearAllMocks();
 		jest.useFakeTimers();
 
-		// Set up mock implementations
 		MicrosoftTodoService.mockImplementation(() => ({
 			getAllTasks: jest.fn().mockResolvedValue(MOCK_TASKS),
 			loadTokens: jest.fn().mockResolvedValue(true)
 		}));
 
-		ClaudeAIService.mockImplementation(() => ({
-			generateInsights: jest.fn().mockResolvedValue(MOCK_INSIGHTS),
-			loadHistory: jest.fn(),
-			recordTaskSnapshot: jest.fn()
-		}));
+		ClaudeWebService.mockImplementation(() => mockAIService());
+		ClaudeAIService.mockImplementation(() => mockAIService());
+		OllamaAIService.mockImplementation(() => mockAIService());
 
-		// Re-require to get fresh instance
 		jest.isolateModules(() => {
 			helper = require("../node_helper");
 		});
@@ -108,8 +131,8 @@ describe("node_helper", () => {
 		test("handles INIT_MODULE notification", () => {
 			helper.start();
 			helper.initModule = jest.fn();
-			helper.socketNotificationReceived("INIT_MODULE", MOCK_CONFIG);
-			expect(helper.initModule).toHaveBeenCalledWith(MOCK_CONFIG);
+			helper.socketNotificationReceived("INIT_MODULE", MOCK_CONFIG_WEB);
+			expect(helper.initModule).toHaveBeenCalledWith(MOCK_CONFIG_WEB);
 		});
 
 		test("handles FETCH_TASKS notification", () => {
@@ -136,21 +159,18 @@ describe("node_helper", () => {
 		});
 	});
 
-	describe("initModule", () => {
-		test("initializes services with config", () => {
+	describe("createAIService", () => {
+		test("creates ClaudeWebService for claude-web provider", () => {
 			helper.start();
-			// Stub fetchTasks to prevent async execution during init
 			helper.fetchTasks = jest.fn();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
+			expect(ClaudeWebService).toHaveBeenCalled();
+		});
 
-			expect(helper.config).toEqual(MOCK_CONFIG);
-			expect(helper.started).toBe(true);
-			expect(MicrosoftTodoService).toHaveBeenCalledWith(
-				expect.objectContaining({
-					clientId: "test-client-id",
-					clientSecret: "test-client-secret"
-				})
-			);
+		test("creates ClaudeAIService for claude-api provider", () => {
+			helper.start();
+			helper.fetchTasks = jest.fn();
+			helper.initModule(MOCK_CONFIG_API);
 			expect(ClaudeAIService).toHaveBeenCalledWith(
 				expect.objectContaining({
 					apiKey: "test-anthropic-key",
@@ -159,43 +179,81 @@ describe("node_helper", () => {
 			);
 		});
 
+		test("creates OllamaAIService for ollama provider", () => {
+			helper.start();
+			helper.fetchTasks = jest.fn();
+			helper.initModule(MOCK_CONFIG_OLLAMA);
+			expect(OllamaAIService).toHaveBeenCalledWith(
+				expect.objectContaining({
+					baseUrl: "http://localhost:11434",
+					model: "llama3.2"
+				})
+			);
+		});
+
+		test("returns null for claude-api with no API key", () => {
+			helper.start();
+			helper.fetchTasks = jest.fn();
+			const config = { ...MOCK_CONFIG_API, anthropicApiKey: "" };
+			helper.initModule(config);
+			expect(helper.aiService).toBeNull();
+		});
+
+		test("returns null for unknown provider", () => {
+			helper.start();
+			helper.fetchTasks = jest.fn();
+			const config = { ...MOCK_CONFIG_WEB, aiProvider: "unknown" };
+			helper.initModule(config);
+			expect(helper.aiService).toBeNull();
+		});
+	});
+
+	describe("initModule", () => {
+		test("initializes services with config", () => {
+			helper.start();
+			helper.fetchTasks = jest.fn();
+			helper.initModule(MOCK_CONFIG_WEB);
+
+			expect(helper.config).toEqual(MOCK_CONFIG_WEB);
+			expect(helper.started).toBe(true);
+			expect(MicrosoftTodoService).toHaveBeenCalledWith(
+				expect.objectContaining({
+					clientId: "test-client-id",
+					clientSecret: "test-client-secret"
+				})
+			);
+		});
+
 		test("only initializes once", () => {
 			helper.start();
 			helper.fetchTasks = jest.fn();
-			helper.initModule(MOCK_CONFIG);
-			helper.initModule(MOCK_CONFIG);
-
-			// Should only create services once
+			helper.initModule(MOCK_CONFIG_WEB);
+			helper.initModule(MOCK_CONFIG_WEB);
 			expect(MicrosoftTodoService).toHaveBeenCalledTimes(1);
 		});
 
 		test("sets up task fetch timer", () => {
 			helper.start();
 			helper.fetchTasks = jest.fn();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
 
 			expect(helper.taskTimer).toBeDefined();
-
-			// Fast-forward past the interval
-			jest.advanceTimersByTime(MOCK_CONFIG.taskUpdateInterval + 100);
-			// fetchTasks called once during init, once from timer
+			jest.advanceTimersByTime(MOCK_CONFIG_WEB.taskUpdateInterval + 100);
 			expect(helper.fetchTasks).toHaveBeenCalledTimes(2);
 		});
 
 		test("sets up insight fetch timer when AI configured", () => {
 			helper.start();
 			helper.fetchTasks = jest.fn();
-			helper.initModule(MOCK_CONFIG);
-
+			helper.initModule(MOCK_CONFIG_WEB);
 			expect(helper.insightTimer).toBeDefined();
 		});
 
-		test("skips AI setup when no API key", () => {
+		test("skips insight timer when no AI service", () => {
 			helper.start();
 			helper.fetchTasks = jest.fn();
-			const configNoAI = { ...MOCK_CONFIG, anthropicApiKey: "" };
-			helper.initModule(configNoAI);
-
+			const config = { ...MOCK_CONFIG_API, anthropicApiKey: "" };
+			helper.initModule(config);
 			expect(helper.aiService).toBeNull();
 			expect(helper.insightTimer).toBeNull();
 		});
@@ -203,8 +261,7 @@ describe("node_helper", () => {
 		test("loads AI history on init", () => {
 			helper.start();
 			helper.fetchTasks = jest.fn();
-			helper.initModule(MOCK_CONFIG);
-
+			helper.initModule(MOCK_CONFIG_WEB);
 			expect(helper.aiService.loadHistory).toHaveBeenCalled();
 		});
 	});
@@ -212,11 +269,9 @@ describe("node_helper", () => {
 	describe("fetchTasks", () => {
 		test("sends TASKS_UPDATED with fetched tasks", async () => {
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
 
-			// Reset mock to clear init call
 			mockSendSocketNotification.mockClear();
-
 			await helper.fetchTasks();
 
 			expect(mockSendSocketNotification).toHaveBeenCalledWith(
@@ -230,29 +285,22 @@ describe("node_helper", () => {
 
 		test("records task snapshot for AI history", async () => {
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
-
-			// Clear from init
+			helper.initModule(MOCK_CONFIG_WEB);
 			helper.aiService.recordTaskSnapshot.mockClear();
 
 			await helper.fetchTasks();
-
-			expect(helper.aiService.recordTaskSnapshot).toHaveBeenCalledWith(
-				MOCK_TASKS
-			);
+			expect(helper.aiService.recordTaskSnapshot).toHaveBeenCalledWith(MOCK_TASKS);
 		});
 
 		test("auto-fetches insights on first task load", async () => {
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
-			helper.insights = null; // Ensure no insights yet
+			helper.initModule(MOCK_CONFIG_WEB);
+			helper.insights = null;
 
-			// Mock fetchInsights to track calls
 			const fetchInsightsSpy = jest.fn();
 			helper.fetchInsights = fetchInsightsSpy;
 
 			await helper.fetchTasks();
-
 			expect(fetchInsightsSpy).toHaveBeenCalled();
 		});
 
@@ -268,7 +316,7 @@ describe("node_helper", () => {
 			});
 			helper.sendSocketNotification = mockSendSocketNotification;
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
 
 			mockSendSocketNotification.mockClear();
 			await helper.fetchTasks();
@@ -286,7 +334,7 @@ describe("node_helper", () => {
 	describe("fetchInsights", () => {
 		test("sends INSIGHTS_UPDATED with AI insights", async () => {
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
 			helper.tasks = MOCK_TASKS;
 
 			mockSendSocketNotification.mockClear();
@@ -303,7 +351,7 @@ describe("node_helper", () => {
 
 		test("filters out completed tasks before sending to AI", async () => {
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
 			helper.tasks = MOCK_TASKS;
 
 			await helper.fetchInsights();
@@ -316,25 +364,23 @@ describe("node_helper", () => {
 
 		test("sends error when AI not configured", async () => {
 			helper.start();
-			const configNoAI = { ...MOCK_CONFIG, anthropicApiKey: "" };
 			helper.fetchTasks = jest.fn();
-			helper.initModule(configNoAI);
+			const config = { ...MOCK_CONFIG_API, anthropicApiKey: "" };
+			helper.initModule(config);
 
 			mockSendSocketNotification.mockClear();
 			await helper.fetchInsights();
 
 			expect(mockSendSocketNotification).toHaveBeenCalledWith(
 				"ERROR",
-				expect.objectContaining({
-					type: "AI_NOT_CONFIGURED"
-				})
+				expect.objectContaining({ type: "AI_NOT_CONFIGURED" })
 			);
 		});
 
 		test("skips when no tasks available", async () => {
 			helper.start();
-			helper.fetchTasks = jest.fn(); // prevent async task fetch during init
-			helper.initModule(MOCK_CONFIG);
+			helper.fetchTasks = jest.fn();
+			helper.initModule(MOCK_CONFIG_WEB);
 			helper.tasks = [];
 
 			mockSendSocketNotification.mockClear();
@@ -344,12 +390,8 @@ describe("node_helper", () => {
 		});
 
 		test("sends ERROR on insight generation failure", async () => {
-			helper.start();
-
-			ClaudeAIService.mockImplementation(() => ({
-				generateInsights: jest.fn().mockRejectedValue(new Error("API error")),
-				loadHistory: jest.fn(),
-				recordTaskSnapshot: jest.fn()
+			ClaudeWebService.mockImplementation(() => mockAIService({
+				generateInsights: jest.fn().mockRejectedValue(new Error("API error"))
 			}));
 
 			jest.isolateModules(() => {
@@ -357,7 +399,8 @@ describe("node_helper", () => {
 			});
 			helper.sendSocketNotification = mockSendSocketNotification;
 			helper.start();
-			helper.initModule(MOCK_CONFIG);
+			helper.fetchTasks = jest.fn();
+			helper.initModule(MOCK_CONFIG_WEB);
 			helper.tasks = MOCK_TASKS;
 
 			mockSendSocketNotification.mockClear();
@@ -377,17 +420,14 @@ describe("node_helper", () => {
 		test("clears timers on stop", () => {
 			helper.start();
 			helper.fetchTasks = jest.fn();
-			helper.initModule(MOCK_CONFIG);
+			helper.initModule(MOCK_CONFIG_WEB);
 
 			expect(helper.taskTimer).toBeDefined();
 			expect(helper.insightTimer).toBeDefined();
 
 			helper.stop();
-			// Timers should be cleared (no more calls after advancing time)
 			helper.fetchTasks.mockClear();
-			jest.advanceTimersByTime(MOCK_CONFIG.taskUpdateInterval * 2);
-			// If timers were properly cleared, fetchTasks shouldn't be called again
-			// (it was already set up, but clearInterval in stop should prevent new calls)
+			jest.advanceTimersByTime(MOCK_CONFIG_WEB.taskUpdateInterval * 2);
 		});
 	});
 });
