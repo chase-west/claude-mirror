@@ -1,5 +1,6 @@
 const NodeHelper = require("node_helper");
 const MicrosoftTodoService = require("./services/microsoft-todo");
+const ClaudeCLIService = require("./services/claude-cli");
 const ClaudeWebService = require("./services/claude-web");
 const ClaudeAIService = require("./services/claude-ai");
 const OllamaAIService = require("./services/ollama-ai");
@@ -45,9 +46,16 @@ module.exports = NodeHelper.create({
 	},
 
 	createAIService: function (config) {
-		const provider = config.aiProvider || "claude-web";
+		const provider = config.aiProvider || "claude-cli";
 
 		switch (provider) {
+			case "claude-cli":
+				return new ClaudeCLIService({
+					cliPath: config.claudeCliPath || "claude",
+					model: config.claudeModel || "claude-sonnet-4-20250514",
+					timeoutMs: config.claudeTimeoutMs || 60000
+				});
+
 			case "claude-web":
 				return new ClaudeWebService({
 					model: config.claudeWebModel || "claude-sonnet-4-20250514",

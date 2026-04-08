@@ -9,12 +9,14 @@ Module.register("MMM-ClaudeTaskMirror", {
 		microsoftTokensPath: "",
 		taskListName: null, // null = all lists
 
-		// AI Provider: "claude-web" (default), "claude-api", "ollama"
-		aiProvider: "claude-web",
+		// AI Provider: "claude-cli" (default), "claude-api", "ollama"
+		aiProvider: "claude-cli",
 
-		// Claude Web (uses your claude.ai login - run 'npm run auth:claude')
-		claudeWebModel: "claude-sonnet-4-20250514",
-		claudeSessionPath: "",
+		// Claude CLI (default - uses your Claude subscription via Claude Code CLI)
+		// Install: npm install -g @anthropic-ai/claude-code && claude auth login
+		claudeCliPath: "claude",
+		claudeModel: "claude-sonnet-4-20250514",
+		claudeTimeoutMs: 60000,
 
 		// Claude API (optional - pay-per-use with API key)
 		anthropicApiKey: "",
