@@ -179,6 +179,11 @@ module.exports = NodeHelper.create({
 			);
 			this.insights = insights;
 
+			// Persist any new patterns Claude identified
+			if (insights.patterns && insights.patterns.length > 0) {
+				this.aiService.saveLearnedPatterns(insights.patterns);
+			}
+
 			this.sendSocketNotification("INSIGHTS_UPDATED", {
 				insights: insights,
 				timestamp: Date.now()

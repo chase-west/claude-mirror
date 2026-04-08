@@ -228,22 +228,22 @@ describe("ClaudeAIService", () => {
 			expect(formatted).toContain("completed");
 		});
 
-		test("formatHistoryForPrompt limits to last 7 snapshots", () => {
+		test("formatHistoryForPrompt limits to last 30 snapshots", () => {
 			const service = new ClaudeAIService({
 				apiKey: "test",
 				client: createMockClient()
 			});
 
-			service.taskHistory = Array.from({ length: 15 }, (_, i) => ({
-				timestamp: `2024-01-${String(i + 1).padStart(2, "0")}T08:00:00Z`,
+			service.taskHistory = Array.from({ length: 50 }, (_, i) => ({
+				timestamp: `2024-01-${String((i % 28) + 1).padStart(2, "0")}T08:00:00Z`,
 				tasks: [{ title: `Task ${i}`, status: "notStarted" }]
 			}));
 
 			const formatted = service.formatHistoryForPrompt();
-			// Should only include last 7 (indices 8-14)
-			expect(formatted).not.toContain("Task 7");
-			expect(formatted).toContain("Task 8");
-			expect(formatted).toContain("Task 14");
+			// Should only include last 30 (indices 20-49)
+			expect(formatted).not.toContain("Task 19");
+			expect(formatted).toContain("Task 20");
+			expect(formatted).toContain("Task 49");
 		});
 	});
 
@@ -259,7 +259,7 @@ describe("ClaudeAIService", () => {
 
 			expect(prompt).toContain("productivity assistant");
 			expect(prompt).toContain("CURRENT TASKS");
-			expect(prompt).toContain("RECENT TASK HISTORY");
+			expect(prompt).toContain("RECENT TASK SNAPSHOTS");
 			expect(prompt).toContain("Finish project report");
 			expect(prompt).toContain("priorityOrder");
 			expect(prompt).toContain("timeBlocks");

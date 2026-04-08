@@ -1,37 +1,65 @@
 const fs = require("fs");
 const path = require("path");
 
-const HISTORY_FILE = path.join(__dirname, "..", "data", "task-history.json");
-const MAX_HISTORY_ENTRIES = 500;
+const DATA_DIR = path.join(__dirname, "..", "data");
+const HISTORY_FILE = path.join(DATA_DIR, "task-history.json");
+const MAX_SNAPSHOTS = 500;
+const MAX_COMPLETIONS = 200;
+const MAX_PATTERNS = 50;
 
 class AIBase {
 	constructor() {
 		this.taskHistory = [];
+		this.completions = [];
+		this.learnedPatterns = [];
+		this._lastTaskMap = null; // for detecting completions
 	}
+
+	// --- Persistence ---
 
 	loadHistory() {
 		try {
-			const data = fs.readFileSync(HISTORY_FILE, "utf8");
-			this.taskHistory = JSON.parse(data);
+			const data = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+			this.taskHistory = data.snapshots || [];
+			this.completions = data.completions || [];
+			this.learnedPatterns = data.patterns || [];
 		} catch {
 			this.taskHistory = [];
+			this.completions = [];
+			this.learnedPatterns = [];
 		}
 	}
 
 	saveHistory() {
-		const dir = path.dirname(HISTORY_FILE);
-		if (!fs.existsSync(dir)) {
-			fs.mkdirSync(dir, { recursive: true });
+		if (!fs.existsSync(DATA_DIR)) {
+			fs.mkdirSync(DATA_DIR, { recursive: true });
 		}
-		if (this.taskHistory.length > MAX_HISTORY_ENTRIES) {
-			this.taskHistory = this.taskHistory.slice(-MAX_HISTORY_ENTRIES);
+		// Trim to limits
+		if (this.taskHistory.length > MAX_SNAPSHOTS) {
+			this.taskHistory = this.taskHistory.slice(-MAX_SNAPSHOTS);
 		}
-		fs.writeFileSync(HISTORY_FILE, JSON.stringify(this.taskHistory, null, 2));
+		if (this.completions.length > MAX_COMPLETIONS) {
+			this.completions = this.completions.slice(-MAX_COMPLETIONS);
+		}
+		if (this.learnedPatterns.length > MAX_PATTERNS) {
+			this.learnedPatterns = this.learnedPatterns.slice(-MAX_PATTERNS);
+		}
+		fs.writeFileSync(HISTORY_FILE, JSON.stringify({
+			snapshots: this.taskHistory,
+			completions: this.completions,
+			patterns: this.learnedPatterns
+		}, null, 2));
 	}
 
+	// --- Task Tracking ---
+
 	recordTaskSnapshot(tasks) {
+		// Detect completions by comparing with previous snapshot
+		this._detectCompletions(tasks);
+
 		const snapshot = {
 			timestamp: new Date().toISOString(),
+			dayOfWeek: new Date().toLocaleDateString("en-US", { weekday: "long" }),
 			tasks: tasks.map((t) => ({
 				title: t.title,
 				status: t.status,
@@ -43,6 +71,60 @@ class AIBase {
 		this.taskHistory.push(snapshot);
 		this.saveHistory();
 	}
+
+	_detectCompletions(currentTasks) {
+		if (!this._lastTaskMap) {
+			// First run - build the map for next comparison
+			this._lastTaskMap = new Map();
+			for (const task of currentTasks) {
+				this._lastTaskMap.set(task.id || task.title, task.status);
+			}
+			return;
+		}
+
+		const now = new Date();
+		for (const task of currentTasks) {
+			const key = task.id || task.title;
+			const prevStatus = this._lastTaskMap.get(key);
+
+			// Task was previously not completed but now is
+			if (prevStatus && prevStatus !== "completed" && task.status === "completed") {
+				this.completions.push({
+					timestamp: now.toISOString(),
+					dayOfWeek: now.toLocaleDateString("en-US", { weekday: "long" }),
+					hour: now.getHours(),
+					title: task.title,
+					listName: task.listName,
+					importance: task.importance
+				});
+			}
+		}
+
+		// Rebuild map
+		this._lastTaskMap = new Map();
+		for (const task of currentTasks) {
+			this._lastTaskMap.set(task.id || task.title, task.status);
+		}
+	}
+
+	// --- Pattern Persistence ---
+
+	saveLearnedPatterns(newPatterns) {
+		if (!newPatterns || newPatterns.length === 0) return;
+
+		for (const pattern of newPatterns) {
+			// Avoid duplicates (fuzzy match by checking if pattern is very similar)
+			const isDuplicate = this.learnedPatterns.some(
+				(existing) => existing.toLowerCase() === pattern.toLowerCase()
+			);
+			if (!isDuplicate) {
+				this.learnedPatterns.push(pattern);
+			}
+		}
+		this.saveHistory();
+	}
+
+	// --- Prompt Building ---
 
 	formatTasksForPrompt(tasks) {
 		if (!tasks || tasks.length === 0) return "No tasks found.";
@@ -66,18 +148,45 @@ class AIBase {
 	formatHistoryForPrompt() {
 		if (this.taskHistory.length === 0) return "No task history available yet.";
 
-		const recent = this.taskHistory.slice(-7);
+		// Send last 30 snapshots for better pattern detection
+		const recent = this.taskHistory.slice(-30);
 		return recent
 			.map((snap) => {
 				const taskTitles = snap.tasks.map((t) => `  - ${t.title} (${t.status})`).join("\n");
-				return `[${snap.timestamp}]\n${taskTitles}`;
+				return `[${snap.dayOfWeek || ""} ${snap.timestamp}]\n${taskTitles}`;
 			})
 			.join("\n\n");
+	}
+
+	formatCompletionsForPrompt() {
+		if (this.completions.length === 0) return "No completion history yet.";
+
+		// Group completions by day of week for pattern detection
+		const byDay = {};
+		for (const c of this.completions) {
+			const day = c.dayOfWeek || "Unknown";
+			if (!byDay[day]) byDay[day] = [];
+			byDay[day].push(c);
+		}
+
+		const lines = [];
+		for (const [day, comps] of Object.entries(byDay)) {
+			const tasks = comps.map((c) => `    ${c.title} (${c.hour}:00, ${c.importance})`).join("\n");
+			lines.push(`  ${day} (${comps.length} completions):\n${tasks}`);
+		}
+		return lines.join("\n");
+	}
+
+	formatPatternsForPrompt() {
+		if (this.learnedPatterns.length === 0) return "None identified yet.";
+		return this.learnedPatterns.map((p, i) => `  ${i + 1}. ${p}`).join("\n");
 	}
 
 	buildPrompt(tasks, currentTime) {
 		const taskList = this.formatTasksForPrompt(tasks);
 		const history = this.formatHistoryForPrompt();
+		const completions = this.formatCompletionsForPrompt();
+		const knownPatterns = this.formatPatternsForPrompt();
 		const dayOfWeek = new Date(currentTime).toLocaleDateString("en-US", { weekday: "long" });
 		const timeStr = new Date(currentTime).toLocaleTimeString("en-US", {
 			hour: "2-digit",
@@ -93,8 +202,14 @@ Current date: ${new Date(currentTime).toLocaleDateString("en-US", { year: "numer
 == CURRENT TASKS ==
 ${taskList}
 
-== RECENT TASK HISTORY (for pattern detection) ==
+== TASK COMPLETION HISTORY (when tasks were finished, grouped by day) ==
+${completions}
+
+== RECENT TASK SNAPSHOTS (for trend detection) ==
 ${history}
+
+== PREVIOUSLY IDENTIFIED PATTERNS (build on these, refine or remove if no longer accurate) ==
+${knownPatterns}
 
 Respond with ONLY valid JSON in this exact format:
 {
@@ -108,19 +223,20 @@ Respond with ONLY valid JSON in this exact format:
     "Brief actionable insight or tip (1-2 sentences max)"
   ],
   "patterns": [
-    "Any recurring pattern detected from history (1 sentence)"
+    "Any recurring pattern detected - be specific about days, times, frequencies"
   ],
   "dailyReminder": "A brief motivational or practical reminder for the day"
 }
 
 Rules:
 - priorityOrder: Rank the top 5 most important incomplete tasks
-- timeBlocks: Suggest optimal times for up to 5 tasks based on typical productivity patterns
-- insights: 2-4 actionable tips based on the task list
-- patterns: 0-3 patterns detected (empty array if no history yet)
+- timeBlocks: Suggest optimal times for up to 5 tasks based on the user's actual completion patterns
+- insights: 2-4 actionable tips based on the task list and history
+- patterns: 1-5 patterns. Include refined versions of previously identified patterns AND any new ones you detect. Be specific (e.g. "You complete most tasks between 9-11 AM on weekdays" not just "You're productive in the morning")
 - dailyReminder: One concise, practical reminder
 - Keep ALL text concise - this displays on a mirror with limited space
-- Focus on what's actionable RIGHT NOW`;
+- Focus on what's actionable RIGHT NOW
+- Use the completion history to personalize time suggestions to when this user actually gets things done`;
 	}
 
 	parseInsightsResponse(text) {
