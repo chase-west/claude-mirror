@@ -1,0 +1,38 @@
+{
+  "name": "mmm-claudetaskmirror",
+  "version": "1.0.0",
+  "description": "MagicMirror² module: Microsoft To Do + Claude AI insights for your smart mirror",
+  "main": "node_helper.js",
+  "scripts": {
+    "test": "jest --verbose",
+    "test:watch": "jest --watch",
+    "auth": "node auth-setup.js",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "MagicMirror",
+    "smart-mirror",
+    "microsoft-todo",
+    "claude-ai",
+    "productivity",
+    "task-management"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "services/**/*.js",
+      "node_helper.js"
+    ]
+  }
+}
