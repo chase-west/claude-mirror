@@ -227,7 +227,8 @@ Rules:
 - priorityOrder: Top 5 tasks ranked by urgency. "reason" = a brief practical recommendation for that specific task (e.g. "start with the outline first" or "due in 2 days - block 2 hours")
 - timeBlocks: Schedule up to 5 tasks into specific times today based on when this user actually gets things done (use completion history). Be realistic.
 - patterns: 1-3 for internal tracking only (not displayed). Refine previous patterns or add new ones.
-- insights and dailyReminder: leave empty (not used)
+- insights: leave empty (not used)
+- dailyReminder: One short practical reminder about the most urgent/important thing (e.g. "speech due in 2 days" or "3 overdue tasks"). No motivational fluff - just facts.
 - Use EXACT task titles from the task list
 - Keep reasons under 10 words - this is a mirror, space is tight`;
 	}

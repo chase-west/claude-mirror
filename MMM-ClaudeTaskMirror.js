@@ -33,7 +33,7 @@ Module.register("MMM-ClaudeTaskMirror", {
 		showInsights: false,
 		showTimeBlocks: true,
 		showPatterns: false,
-		showDailyReminder: false,
+		showDailyReminder: true,
 		animateIn: true,
 
 		// Update intervals (ms)
