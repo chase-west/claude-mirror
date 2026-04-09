@@ -31,7 +31,7 @@ class ClaudeCLIService extends AIBase {
 			}
 
 			const proc = this._spawn(this.cliPath, args, {
-				stdio: ["pipe", "pipe", "pipe"],
+				stdio: ["ignore", "pipe", "pipe"],
 				timeout: this.timeoutMs
 			});
 
