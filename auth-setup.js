@@ -1,130 +1,137 @@
 #!/usr/bin/env node
 
 /**
- * One-time OAuth setup for Microsoft To Do.
+ * Microsoft To Do authentication using Device Code Flow.
+ * No redirect URI, no client secret, no local server needed.
  *
- * Usage:
- *   1. Register an app at https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps
- *   2. Add redirect URI: http://localhost:8901/callback
- *   3. Under "API permissions", add Microsoft Graph → Tasks.ReadWrite + offline_access
- *   4. Under "Certificates & secrets", create a client secret
- *   5. Run: MICROSOFT_CLIENT_ID=xxx MICROSOFT_CLIENT_SECRET=yyy node auth-setup.js
+ * Setup (one time):
+ *   1. Go to https://portal.azure.com → App registrations → New registration
+ *   2. Name it whatever, select "Personal Microsoft accounts only"
+ *   3. Leave Redirect URI blank, click Register
+ *   4. Go to Authentication → Advanced → "Allow public client flows" → Yes → Save
+ *   5. Copy the Application (client) ID
+ *   6. Run: MICROSOFT_CLIENT_ID=your-id npm run auth:microsoft
  */
 
-const http = require("http");
-const url = require("url");
 const fs = require("fs");
 const path = require("path");
+const fetch = require("node-fetch");
 
 const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
-const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
-const REDIRECT_URI = "http://localhost:8901/callback";
-const SCOPES = "Tasks.Read Tasks.ReadWrite offline_access";
 const TOKENS_PATH = path.join(__dirname, "tokens.json");
-const PORT = 8901;
+const SCOPES = "Tasks.ReadWrite offline_access";
 
-if (!CLIENT_ID || !CLIENT_SECRET) {
-	console.error("Error: Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET environment variables.");
-	console.error("");
+// Use /consumers for personal Microsoft accounts
+const DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
+const TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+
+if (!CLIENT_ID) {
+	console.error("\nError: Set MICROSOFT_CLIENT_ID environment variable.\n");
 	console.error("Usage:");
-	console.error("  MICROSOFT_CLIENT_ID=xxx MICROSOFT_CLIENT_SECRET=yyy node auth-setup.js");
+	console.error("  MICROSOFT_CLIENT_ID=your-app-id npm run auth:microsoft\n");
+	console.error("Don't have a client ID yet? Quick setup:");
+	console.error("  1. Go to https://portal.azure.com → App registrations → New registration");
+	console.error("  2. Name: 'MagicMirror', Account type: 'Personal Microsoft accounts only'");
+	console.error("  3. Leave Redirect URI blank → Register");
+	console.error("  4. Authentication → Advanced → Allow public client flows → Yes → Save");
+	console.error("  5. Copy the Application (client) ID from the Overview page\n");
 	process.exit(1);
 }
 
-const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?`
-	+ `client_id=${encodeURIComponent(CLIENT_ID)}`
-	+ `&response_type=code`
-	+ `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`
-	+ `&scope=${encodeURIComponent(SCOPES)}`
-	+ `&response_mode=query`;
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-console.log("\n=== MMM-ClaudeTaskMirror OAuth Setup ===\n");
-console.log("Open this URL in your browser to authorize:\n");
-console.log(authUrl);
-console.log("\nWaiting for callback on port", PORT, "...\n");
-
-const server = http.createServer(async (req, res) => {
-	const parsed = url.parse(req.url, true);
-
-	if (parsed.pathname !== "/callback") {
-		res.writeHead(404);
-		res.end("Not found");
-		return;
-	}
-
-	const code = parsed.query.code;
-	if (!code) {
-		res.writeHead(400);
-		res.end("Error: No authorization code received. " + (parsed.query.error_description || ""));
-		return;
-	}
-
-	try {
-		// Exchange code for tokens
-		const fetch = require("node-fetch");
-		const tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-
-		const params = new URLSearchParams({
+async function requestDeviceCode() {
+	const response = await fetch(DEVICE_CODE_URL, {
+		method: "POST",
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		body: new URLSearchParams({
 			client_id: CLIENT_ID,
-			client_secret: CLIENT_SECRET,
-			code: code,
-			redirect_uri: REDIRECT_URI,
-			grant_type: "authorization_code",
 			scope: SCOPES
-		});
+		}).toString()
+	});
 
-		const tokenResponse = await fetch(tokenUrl, {
+	if (!response.ok) {
+		const err = await response.text();
+		throw new Error(`Device code request failed: ${err}`);
+	}
+
+	return response.json();
+}
+
+async function pollForToken(deviceCode, interval, expiresIn) {
+	const deadline = Date.now() + (expiresIn * 1000);
+
+	while (Date.now() < deadline) {
+		await sleep(interval * 1000);
+
+		const response = await fetch(TOKEN_URL, {
 			method: "POST",
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
-			body: params.toString()
+			body: new URLSearchParams({
+				client_id: CLIENT_ID,
+				device_code: deviceCode,
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code"
+			}).toString()
 		});
 
-		if (!tokenResponse.ok) {
-			const err = await tokenResponse.text();
-			throw new Error(`Token exchange failed: ${err}`);
+		const data = await response.json();
+
+		if (data.error === "authorization_pending") {
+			// User hasn't signed in yet, keep polling
+			continue;
 		}
 
-		const data = await tokenResponse.json();
+		if (data.error === "slow_down") {
+			interval += 5;
+			continue;
+		}
+
+		if (data.error) {
+			throw new Error(`Auth failed: ${data.error_description || data.error}`);
+		}
+
+		// Success
+		return data;
+	}
+
+	throw new Error("Authentication timed out. Run the command again.");
+}
+
+async function main() {
+	console.log("\n=== MMM-ClaudeTaskMirror - Microsoft To Do Login ===\n");
+
+	try {
+		const codeResponse = await requestDeviceCode();
+
+		console.log("To sign in, open this URL on your phone or computer:\n");
+		console.log(`  ${codeResponse.verification_uri}\n`);
+		console.log(`Enter this code: ${codeResponse.user_code}\n`);
+		console.log("Waiting for you to sign in...\n");
+
+		const tokenData = await pollForToken(
+			codeResponse.device_code,
+			codeResponse.interval || 5,
+			codeResponse.expires_in || 900
+		);
 
 		const tokens = {
-			access_token: data.access_token,
-			refresh_token: data.refresh_token,
-			expires_at: Date.now() + (data.expires_in * 1000)
+			access_token: tokenData.access_token,
+			refresh_token: tokenData.refresh_token,
+			expires_at: Date.now() + (tokenData.expires_in * 1000)
 		};
 
 		fs.writeFileSync(TOKENS_PATH, JSON.stringify(tokens, null, 2));
-		console.log("Tokens saved to", TOKENS_PATH);
-		console.log("Setup complete! You can now use the module.\n");
 
-		res.writeHead(200, { "Content-Type": "text/html" });
-		res.end(`
-			<html><body style="font-family:sans-serif;text-align:center;padding:50px;background:#1a1a2e;color:#eee">
-				<h1>Authorization Successful!</h1>
-				<p>Tokens have been saved. You can close this window.</p>
-				<p style="color:#69db7c">MMM-ClaudeTaskMirror is ready to go.</p>
-			</body></html>
-		`);
-
-		setTimeout(() => {
-			server.close();
-			process.exit(0);
-		}, 1000);
+		console.log("Success! Tokens saved.");
+		console.log(`\nAdd this to your MagicMirror config.js:\n`);
+		console.log(`  microsoftClientId: "${CLIENT_ID}"\n`);
+		console.log("Your mirror can now access your Microsoft To Do tasks.\n");
 	} catch (error) {
-		console.error("Error exchanging code for tokens:", error.message);
-		res.writeHead(500);
-		res.end("Error: " + error.message);
-		server.close();
+		console.error(`\nError: ${error.message}\n`);
 		process.exit(1);
 	}
-});
+}
 
-server.listen(PORT, () => {
-	// Try to open browser automatically
-	const { exec } = require("child_process");
-	const openCmd = process.platform === "darwin" ? "open"
-		: process.platform === "win32" ? "start"
-			: "xdg-open";
-	exec(`${openCmd} "${authUrl}"`, () => {
-		// Silently ignore if browser can't be opened
-	});
-});
+main();

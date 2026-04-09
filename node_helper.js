@@ -90,7 +90,7 @@ module.exports = NodeHelper.create({
 		// Initialize Microsoft To Do service
 		this.todoService = new MicrosoftTodoService({
 			clientId: config.microsoftClientId,
-			clientSecret: config.microsoftClientSecret,
+			clientSecret: config.microsoftClientSecret || "",
 			tokensPath: config.microsoftTokensPath || path.join(__dirname, "tokens.json")
 		});
 

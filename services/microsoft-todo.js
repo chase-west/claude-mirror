@@ -3,12 +3,13 @@ const path = require("path");
 const fetch = require("node-fetch");
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-const TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+// Use /consumers for personal accounts - avoids org tenant issues
+const TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
 
 class MicrosoftTodoService {
 	constructor(config) {
 		this.clientId = config.clientId;
-		this.clientSecret = config.clientSecret;
+		this.clientSecret = config.clientSecret || ""; // optional for device code flow
 		this.tokensPath = config.tokensPath || path.join(__dirname, "..", "tokens.json");
 		this.tokens = null;
 		this.fetch = config.fetch || fetch;
@@ -34,16 +35,20 @@ class MicrosoftTodoService {
 
 	async refreshAccessToken() {
 		if (!this.tokens || !this.tokens.refresh_token) {
-			throw new Error("No refresh token available. Run 'npm run auth' to authenticate.");
+			throw new Error("No refresh token available. Run 'npm run auth:microsoft' to authenticate.");
 		}
 
 		const params = new URLSearchParams({
 			client_id: this.clientId,
-			client_secret: this.clientSecret,
 			refresh_token: this.tokens.refresh_token,
 			grant_type: "refresh_token",
-			scope: "Tasks.Read Tasks.ReadWrite offline_access"
+			scope: "Tasks.ReadWrite offline_access"
 		});
+
+		// Only include client_secret if provided (not needed for public/device code apps)
+		if (this.clientSecret) {
+			params.set("client_secret", this.clientSecret);
+		}
 
 		const response = await this.fetch(TOKEN_URL, {
 			method: "POST",
@@ -70,7 +75,7 @@ class MicrosoftTodoService {
 		if (!this.tokens) {
 			const loaded = await this.loadTokens();
 			if (!loaded) {
-				throw new Error("No tokens found. Run 'npm run auth' to authenticate.");
+				throw new Error("No tokens found. Run 'npm run auth:microsoft' to authenticate.");
 			}
 		}
 

@@ -5,7 +5,7 @@ Module.register("MMM-ClaudeTaskMirror", {
 	defaults: {
 		// Microsoft To Do
 		microsoftClientId: "",
-		microsoftClientSecret: "",
+		microsoftClientSecret: "", // optional - not needed for device code flow
 		microsoftTokensPath: "",
 		taskListName: null, // null = all lists
 
