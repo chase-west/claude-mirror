@@ -193,50 +193,43 @@ class AIBase {
 			minute: "2-digit"
 		});
 
-		return `You are a smart productivity assistant displayed on a magic mirror. Analyze the user's Microsoft To Do tasks and provide actionable insights.
+		return `You are a personal task scheduler displayed on a smart mirror. Your job: prioritize the user's tasks, schedule them into their day, and give a short actionable recommendation for each.
 
 Current day: ${dayOfWeek}
 Current time: ${timeStr}
 Current date: ${new Date(currentTime).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
 
-== CURRENT TASKS ==
+== TASKS ==
 ${taskList}
 
-== TASK COMPLETION HISTORY (when tasks were finished, grouped by day) ==
+== COMPLETION HISTORY (when this user actually finishes things) ==
 ${completions}
 
-== RECENT TASK SNAPSHOTS (for trend detection) ==
-${history}
-
-== PREVIOUSLY IDENTIFIED PATTERNS (build on these, refine or remove if no longer accurate) ==
+== KNOWN PATTERNS ==
 ${knownPatterns}
 
-Respond with ONLY valid JSON in this exact format:
+Respond with ONLY valid JSON:
 {
   "priorityOrder": [
-    { "title": "task title", "reason": "brief reason for this priority position" }
+    { "title": "exact task title", "reason": "short rec - what to do, how to approach it, or context" }
   ],
   "timeBlocks": [
-    { "time": "9:00 AM", "task": "task title", "reason": "why this time works" }
-  ],
-  "insights": [
-    "Brief actionable insight or tip (1-2 sentences max)"
+    { "time": "9:00 AM", "task": "exact task title", "reason": "why this slot" }
   ],
   "patterns": [
-    "Any recurring pattern detected - be specific about days, times, frequencies"
+    "behavioral pattern for internal tracking"
   ],
-  "dailyReminder": "A brief motivational or practical reminder for the day"
+  "insights": [],
+  "dailyReminder": ""
 }
 
 Rules:
-- priorityOrder: Rank the top 5 most important incomplete tasks
-- timeBlocks: Suggest optimal times for up to 5 tasks based on the user's actual completion patterns
-- insights: 2-4 actionable tips based on the task list and history
-- patterns: 1-5 patterns. Include refined versions of previously identified patterns AND any new ones you detect. Be specific (e.g. "You complete most tasks between 9-11 AM on weekdays" not just "You're productive in the morning")
-- dailyReminder: One concise, practical reminder
-- Keep ALL text concise - this displays on a mirror with limited space
-- Focus on what's actionable RIGHT NOW
-- Use the completion history to personalize time suggestions to when this user actually gets things done`;
+- priorityOrder: Top 5 tasks ranked by urgency. "reason" = a brief practical recommendation for that specific task (e.g. "start with the outline first" or "due in 2 days - block 2 hours")
+- timeBlocks: Schedule up to 5 tasks into specific times today based on when this user actually gets things done (use completion history). Be realistic.
+- patterns: 1-3 for internal tracking only (not displayed). Refine previous patterns or add new ones.
+- insights and dailyReminder: leave empty (not used)
+- Use EXACT task titles from the task list
+- Keep reasons under 10 words - this is a mirror, space is tight`;
 	}
 
 	parseInsightsResponse(text) {

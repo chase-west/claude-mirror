@@ -1,81 +1,58 @@
-/* MMM-ClaudeTaskMirror - Smart Mirror Styles */
+/* MMM-ClaudeTaskMirror - Compact Mirror Styles */
 
 .claude-task-mirror {
 	color: #ddd;
 	font-family: "Roboto Condensed", Arial, sans-serif;
-	width: 100%;
-	text-align: center;
+	max-width: 280px;
 }
 
-/* Loading & Error States */
+/* Loading & Error */
 .ctm-loading,
 .ctm-error {
-	padding: 15px;
-	text-align: center;
-	font-size: 14px;
+	padding: 8px;
+	font-size: 11px;
 	opacity: 0.7;
 }
 
-.ctm-loading .fa {
-	margin-right: 8px;
+.ctm-loading .fa,
+.ctm-error .fa {
+	margin-right: 5px;
 }
 
 .ctm-error {
 	color: #ff6b6b;
 }
 
-.ctm-error .fa {
-	margin-right: 8px;
-}
-
-/* Daily Reminder Banner */
+/* Hide daily reminder */
 .ctm-daily-reminder {
-	background: linear-gradient(135deg, rgba(100, 180, 255, 0.15), rgba(140, 100, 255, 0.15));
-	border-left: 3px solid rgba(100, 180, 255, 0.6);
-	padding: 10px 14px;
-	margin-bottom: 15px;
-	font-size: 13px;
-	line-height: 1.4;
-	border-radius: 0 4px 4px 0;
-	color: #cde;
+	display: none;
 }
 
-.ctm-daily-reminder .fa {
-	color: #ffd43b;
-	margin-right: 8px;
-}
-
-/* Main Content Layout */
+/* Content */
 .ctm-content {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 10px;
 }
 
 /* Section Headers */
 .ctm-section-header {
-	font-size: 14px;
+	font-size: 10px;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 1.5px;
-	color: rgba(255, 255, 255, 0.6);
-	margin-bottom: 10px;
-	padding-bottom: 5px;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	letter-spacing: 1.2px;
+	color: rgba(255, 255, 255, 0.35);
+	margin-bottom: 4px;
+	padding-bottom: 3px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .ctm-section-header .fa {
-	margin-right: 6px;
-	font-size: 12px;
+	margin-right: 4px;
+	font-size: 9px;
 }
 
-/* Task List */
-.ctm-task-list {
-	flex: 1;
-	display: inline-block;
-	text-align: left;
-}
-
+/* Tasks */
 .ctm-tasks {
 	list-style: none;
 	padding: 0;
@@ -84,131 +61,94 @@
 
 .ctm-task {
 	display: flex;
-	align-items: flex-start;
-	padding: 8px 0;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-	transition: opacity 0.3s ease;
+	align-items: center;
+	padding: 3px 0;
 }
 
-.ctm-task:last-child {
-	border-bottom: none;
-}
-
-/* Priority Indicators */
+/* Priority dot */
 .ctm-priority {
-	width: 20px;
+	width: 14px;
 	flex-shrink: 0;
-	padding-top: 2px;
 	text-align: center;
+	font-size: 8px;
 }
 
-.ctm-importance-high .ctm-priority {
-	color: #ff6b6b;
-}
+.ctm-importance-high .ctm-priority { color: #ff6b6b; }
+.ctm-importance-normal .ctm-priority { color: rgba(255, 255, 255, 0.15); }
+.ctm-importance-low .ctm-priority { color: #69db7c; }
 
-.ctm-importance-normal .ctm-priority {
-	color: rgba(255, 255, 255, 0.3);
-}
-
-.ctm-importance-low .ctm-priority {
-	color: #69db7c;
-}
-
-/* Task Content */
+/* Task text */
 .ctm-task-content {
 	flex: 1;
 	min-width: 0;
-	margin-left: 8px;
+	margin-left: 4px;
 }
 
 .ctm-task-title {
-	font-size: 14px;
+	font-size: 12px;
 	color: #eee;
-	line-height: 1.3;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: block;
+	max-width: 230px;
 }
 
 .ctm-completed .ctm-task-title {
 	text-decoration: line-through;
-	opacity: 0.4;
+	opacity: 0.3;
 }
 
-/* Task Meta */
+/* Due date inline */
 .ctm-task-meta {
-	display: flex;
-	gap: 10px;
-	margin-top: 3px;
-	font-size: 11px;
-	color: rgba(255, 255, 255, 0.4);
+	display: inline;
+	font-size: 9px;
+	color: rgba(255, 255, 255, 0.3);
+	margin-left: 6px;
 }
 
-.ctm-list-badge {
-	background: rgba(255, 255, 255, 0.08);
-	padding: 1px 6px;
-	border-radius: 3px;
-	font-size: 10px;
-}
+.ctm-list-badge { display: none; }
+.ctm-due-date .fa { margin-right: 2px; }
+.ctm-overdue { color: #ff6b6b !important; font-weight: 600; }
+.ctm-due-today { color: #ffd43b !important; font-weight: 600; }
 
-.ctm-due-date .fa {
-	margin-right: 3px;
-}
-
-.ctm-overdue {
-	color: #ff6b6b !important;
-	font-weight: 600;
-}
-
-.ctm-due-today {
-	color: #ffd43b !important;
-	font-weight: 600;
-}
-
-/* AI Reason */
+/* AI recommendation per task */
 .ctm-ai-reason {
-	font-size: 11px;
-	color: rgba(140, 180, 255, 0.6);
-	margin-top: 2px;
-	margin-left: 28px;
-	font-style: italic;
+	font-size: 9px;
+	color: rgba(140, 180, 255, 0.5);
+	margin-left: 18px;
+	padding: 1px 0 2px;
 }
 
 .ctm-ai-reason .fa {
-	margin-right: 4px;
-	font-size: 10px;
+	margin-right: 3px;
+	font-size: 8px;
 }
 
-/* More Tasks */
+/* More tasks count */
 .ctm-more-tasks {
-	text-align: center;
+	font-size: 9px;
+	color: rgba(255, 255, 255, 0.2);
+	padding: 2px 0 0;
+}
+
+.ctm-empty {
+	padding: 8px 0;
 	font-size: 11px;
 	color: rgba(255, 255, 255, 0.3);
-	padding: 8px 0 0;
 }
 
-/* Empty State */
-.ctm-empty {
-	text-align: center;
-	padding: 20px 0;
-	font-size: 13px;
-	color: rgba(255, 255, 255, 0.4);
-}
-
-/* Insights Panel */
+/* Schedule */
 .ctm-insights-panel {
-	border-top: 1px solid rgba(255, 255, 255, 0.08);
-	padding-top: 15px;
-	display: inline-block;
-	text-align: left;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	padding-top: 6px;
 }
 
 .ctm-insights-section {
-	margin-bottom: 15px;
+	margin-bottom: 4px;
 }
 
-.ctm-insights-section:last-child {
-	margin-bottom: 0;
-}
-
-/* Time Blocks */
 .ctm-time-blocks {
 	list-style: none;
 	padding: 0;
@@ -218,54 +158,30 @@
 .ctm-time-block {
 	display: flex;
 	align-items: baseline;
-	padding: 4px 0;
-	font-size: 13px;
+	padding: 1px 0;
+	font-size: 10px;
 }
 
 .ctm-time {
-	width: 70px;
+	width: 55px;
 	flex-shrink: 0;
 	color: #74c0fc;
 	font-weight: 600;
-	font-size: 12px;
+	font-size: 10px;
 }
 
 .ctm-time-task {
-	color: #ddd;
+	color: rgba(255, 255, 255, 0.6);
 }
 
-/* Insight List */
+/* Hide insights and patterns sections */
 .ctm-insight-list,
 .ctm-pattern-list {
-	list-style: none;
-	padding: 0;
-	margin: 0;
+	display: none;
 }
 
-.ctm-insight-list li,
-.ctm-pattern-list li {
-	padding: 4px 0;
-	font-size: 12px;
-	color: rgba(255, 255, 255, 0.6);
-	line-height: 1.4;
-	padding-left: 12px;
-	position: relative;
-}
-
-.ctm-insight-list li::before {
-	content: "\f0eb"; /* lightbulb */
-	font-family: FontAwesome;
-	position: absolute;
-	left: 0;
-	color: rgba(255, 213, 59, 0.5);
-	font-size: 10px;
-}
-
-.ctm-pattern-list li::before {
-	content: "\f01e"; /* repeat */
-	font-family: FontAwesome;
-	position: absolute;
-	left: 0;
-	color: rgba(140, 100, 255, 0.5);
-	font-size: 10px;
+/* Hide the section header for insights/patterns too */
+.ctm-insights-section:has(.ctm-insight-list),
+.ctm-insights-section:has(.ctm-pattern-list) {
+	display: none;
 }

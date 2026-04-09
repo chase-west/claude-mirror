@@ -257,9 +257,9 @@ describe("ClaudeAIService", () => {
 			const fixedTime = new Date("2024-01-15T10:30:00Z").getTime();
 			const prompt = service.buildPrompt(MOCK_TASKS, fixedTime);
 
-			expect(prompt).toContain("productivity assistant");
-			expect(prompt).toContain("CURRENT TASKS");
-			expect(prompt).toContain("RECENT TASK SNAPSHOTS");
+			expect(prompt).toContain("task scheduler");
+			expect(prompt).toContain("TASKS");
+			expect(prompt).toContain("COMPLETION HISTORY");
 			expect(prompt).toContain("Finish project report");
 			expect(prompt).toContain("priorityOrder");
 			expect(prompt).toContain("timeBlocks");

@@ -334,7 +334,7 @@ describe("ClaudeCLIService", () => {
 		test("has buildPrompt", () => {
 			const service = new ClaudeCLIService({});
 			const prompt = service.buildPrompt(MOCK_TASKS, Date.now());
-			expect(prompt).toContain("productivity assistant");
+			expect(prompt).toContain("task scheduler");
 		});
 
 		test("has task history methods", () => {

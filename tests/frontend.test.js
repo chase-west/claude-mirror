@@ -242,11 +242,12 @@ describe("MMM-ClaudeTaskMirror Frontend", () => {
 			expect(taskList).toBeDefined();
 		});
 
-		test("shows daily reminder when insights available", () => {
+		test("shows daily reminder when enabled and insights available", () => {
 			mod.start();
 			mod.loading = false;
 			mod.tasks = MOCK_TASKS;
 			mod.insights = MOCK_INSIGHTS;
+			mod.config.showDailyReminder = true;
 
 			const dom = mod.getDom();
 			const reminder = dom.children.find((c) =>
@@ -270,11 +271,12 @@ describe("MMM-ClaudeTaskMirror Frontend", () => {
 			expect(reminder).toBeUndefined();
 		});
 
-		test("shows insights panel when insights available", () => {
+		test("shows insights panel when enabled and insights available", () => {
 			mod.start();
 			mod.loading = false;
 			mod.tasks = MOCK_TASKS;
 			mod.insights = MOCK_INSIGHTS;
+			mod.config.showInsights = true;
 
 			const dom = mod.getDom();
 			const content = dom.children.find((c) => c.className === "ctm-content");
@@ -519,12 +521,12 @@ describe("MMM-ClaudeTaskMirror Frontend", () => {
 		test("has sensible defaults", () => {
 			const defaults = mockModule.registered.definition.defaults;
 
-			expect(defaults.maxTasks).toBe(10);
+			expect(defaults.maxTasks).toBe(5);
 			expect(defaults.showCompleted).toBe(false);
-			expect(defaults.showInsights).toBe(true);
+			expect(defaults.showInsights).toBe(false);
 			expect(defaults.showTimeBlocks).toBe(true);
-			expect(defaults.showPatterns).toBe(true);
-			expect(defaults.showDailyReminder).toBe(true);
+			expect(defaults.showPatterns).toBe(false);
+			expect(defaults.showDailyReminder).toBe(false);
 			expect(defaults.taskUpdateInterval).toBe(300000); // 5 min
 			expect(defaults.insightUpdateInterval).toBe(1800000); // 30 min
 		});

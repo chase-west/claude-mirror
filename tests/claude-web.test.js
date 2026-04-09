@@ -446,7 +446,7 @@ describe("ClaudeWebService", () => {
 		test("has buildPrompt", () => {
 			const service = new ClaudeWebService({ sessionKey: "test" });
 			const prompt = service.buildPrompt(MOCK_TASKS, Date.now());
-			expect(prompt).toContain("productivity assistant");
+			expect(prompt).toContain("task scheduler");
 			expect(prompt).toContain("Test task");
 		});
 

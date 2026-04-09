@@ -28,12 +28,12 @@ Module.register("MMM-ClaudeTaskMirror", {
 		ollamaModel: "llama3.2",
 
 		// Display
-		maxTasks: 10,
+		maxTasks: 5,
 		showCompleted: false,
-		showInsights: true,
+		showInsights: false,
 		showTimeBlocks: true,
-		showPatterns: true,
-		showDailyReminder: true,
+		showPatterns: false,
+		showDailyReminder: false,
 		animateIn: true,
 
 		// Update intervals (ms)
