@@ -23,6 +23,7 @@ class ClaudeCLIService extends AIBase {
 			const args = [
 				"-p", prompt,
 				"--output-format", "stream-json",
+				"--verbose",
 				"--max-turns", "1"
 			];
 
