@@ -33,6 +33,10 @@ function mockAIService(overrides) {
 		generateInsights: jest.fn().mockResolvedValue(MOCK_INSIGHTS),
 		loadHistory: jest.fn(),
 		recordTaskSnapshot: jest.fn(),
+		getRecentThoughts: jest.fn().mockReturnValue([]),
+		addThought: jest.fn().mockReturnValue({ id: "t1", text: "test" }),
+		deleteThought: jest.fn(),
+		saveLearnedPatterns: jest.fn(),
 		...overrides
 	};
 }
@@ -118,6 +122,8 @@ describe("node_helper", () => {
 			helper = require("../node_helper");
 		});
 		helper.sendSocketNotification = mockSendSocketNotification;
+		// Prevent actual HTTP server from starting during tests
+		helper.startThoughtsApi = jest.fn();
 	});
 
 	afterEach(() => {
@@ -335,6 +341,7 @@ describe("node_helper", () => {
 				helper = require("../node_helper");
 			});
 			helper.sendSocketNotification = mockSendSocketNotification;
+			helper.startThoughtsApi = jest.fn();
 			helper.start();
 			helper.initModule(MOCK_CONFIG_CLI);
 
@@ -418,6 +425,7 @@ describe("node_helper", () => {
 				helper = require("../node_helper");
 			});
 			helper.sendSocketNotification = mockSendSocketNotification;
+			helper.startThoughtsApi = jest.fn();
 			helper.start();
 			helper.fetchTasks = jest.fn();
 			helper.initModule(MOCK_CONFIG_CLI);
