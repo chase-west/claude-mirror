@@ -270,50 +270,57 @@ class AIBase {
 			minute: "2-digit"
 		});
 
-		return `You are a personal life assistant displayed on a smart mirror. Your job: prioritize the user's tasks, schedule them into their day, suggest new tasks based on their thoughts and context, and give a short actionable recommendation for each.
+		// Build example schedule starting from current time
+		const startHour = new Date(currentTime).getHours();
+		const exampleTimes = [];
+		for (let i = 0; i < 3; i++) {
+			const h = startHour + i + 1;
+			const ampm = h >= 12 ? "PM" : "AM";
+			const h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+			exampleTimes.push(`${h12}:00 ${ampm}`);
+		}
 
-Current day: ${dayOfWeek}
-Current time: ${timeStr}
-Current date: ${new Date(currentTime).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+		return `You are a personal life assistant on a smart mirror. Schedule the user's day, prioritize tasks, and suggest new ones from their thoughts.
+
+Current: ${dayOfWeek}, ${timeStr}, ${new Date(currentTime).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
 
 == TASKS ==
 ${taskList}
 
 == USER'S THOUGHTS & NOTES ==
-These are things the user has typed in - ideas, reminders, things on their mind. Use these to understand their life context and suggest tasks they might need to do.
 ${thoughtsList}
 
-== COMPLETION HISTORY (when this user actually finishes things) ==
+== COMPLETION HISTORY ==
 ${completions}
 
 == KNOWN PATTERNS ==
 ${knownPatterns}
 
-Respond with ONLY valid JSON:
+Return ONLY valid JSON. The timeBlocks field is the MOST IMPORTANT - you MUST schedule tasks into specific hours:
 {
-  "priorityOrder": [
-    { "title": "exact task title", "reason": "short rec under 10 words" }
-  ],
   "timeBlocks": [
-    { "time": "9:00 AM", "task": "exact task title" }
+    { "time": "${exampleTimes[0]}", "task": "first task title here" },
+    { "time": "${exampleTimes[1]}", "task": "second task title here" },
+    { "time": "${exampleTimes[2]}", "task": "third task title here" }
+  ],
+  "priorityOrder": [
+    { "title": "exact task title", "reason": "under 10 words" }
   ],
   "suggestedTasks": [
-    { "title": "suggested task name", "reason": "why - based on what thought or context", "source": "thought or pattern that triggered this" }
+    { "title": "new task idea", "reason": "why", "source": "what thought triggered it" }
   ],
   "patterns": ["pattern"],
   "insights": [],
-  "dailyReminder": "one practical reminder"
+  "dailyReminder": "one factual reminder"
 }
 
 Rules:
-- priorityOrder: Top 5 tasks ranked by urgency. "reason" = brief practical tip for that task
-- timeBlocks: REQUIRED. Schedule the top 5 tasks into specific hours TODAY starting from ${timeStr}. Format time as "9:00 AM", "10:30 AM" etc. Use "task" field with the EXACT task title only - no descriptions.
-- suggestedTasks: 1-5 NEW task suggestions based on the user's thoughts, notes, and patterns. Be specific and actionable.
-- patterns: 1-3 for internal tracking only (not displayed). Refine previous patterns or add new ones.
-- insights: MUST be empty array []
-- dailyReminder: One short factual reminder about the most urgent thing (e.g. "speech due in 8 days" or "2 overdue tasks")
-- Use EXACT task titles from the task list for priorityOrder and timeBlocks
-- Keep reasons under 10 words - this is a mirror, space is tight`;
+- timeBlocks: MANDATORY - schedule ALL top tasks into hours today. Start from ${timeStr}. Use times like "${exampleTimes[0]}", "${exampleTimes[1]}" etc. "task" = EXACT title from task list.
+- priorityOrder: Top 5 by urgency with brief tip
+- suggestedTasks: 1-3 new tasks from thoughts/context
+- dailyReminder: factual (e.g. "2 overdue tasks")
+- insights: always empty []
+- reasons under 10 words`;
 	}
 
 	parseInsightsResponse(text) {

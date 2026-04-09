@@ -385,7 +385,7 @@ describe("ClaudeAIService", () => {
 			const calledWith = mockClient.messages.create.mock.calls[0][0];
 			const message = calledWith.messages[0].content;
 			// The prompt should contain today's date info
-			expect(message).toContain("Current day:");
+			expect(message).toContain("Current:");
 		});
 
 		test("uses custom model when configured", async () => {

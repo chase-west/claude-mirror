@@ -306,7 +306,7 @@ describe("ClaudeCLIService", () => {
 			const service = new ClaudeCLIService({ spawn: mockSpawn });
 			await service.generateInsights(MOCK_TASKS);
 
-			expect(capturedPrompt).toContain("Current day:");
+			expect(capturedPrompt).toContain("Current:");
 			expect(capturedPrompt).toContain("Current time:");
 		});
 
