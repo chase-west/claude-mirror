@@ -3,13 +3,13 @@ const path = require("path");
 const fetch = require("node-fetch");
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-// Use /consumers for personal accounts - avoids org tenant issues
-const TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+const DEFAULT_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e";
+const TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 
 class MicrosoftTodoService {
 	constructor(config) {
-		this.clientId = config.clientId;
-		this.clientSecret = config.clientSecret || ""; // optional for device code flow
+		this.clientId = config.clientId || DEFAULT_CLIENT_ID;
+		this.clientSecret = config.clientSecret || "";
 		this.tokensPath = config.tokensPath || path.join(__dirname, "..", "tokens.json");
 		this.tokens = null;
 		this.fetch = config.fetch || fetch;
@@ -17,8 +17,12 @@ class MicrosoftTodoService {
 
 	async loadTokens() {
 		try {
-			const data = fs.readFileSync(this.tokensPath, "utf8");
-			this.tokens = JSON.parse(data);
+			const data = JSON.parse(fs.readFileSync(this.tokensPath, "utf8"));
+			// Use client_id from tokens file if not set in config
+			if (data.client_id && this.clientId === DEFAULT_CLIENT_ID) {
+				this.clientId = data.client_id;
+			}
+			this.tokens = data;
 			return true;
 		} catch {
 			return false;

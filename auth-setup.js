@@ -2,41 +2,28 @@
 
 /**
  * Microsoft To Do authentication using Device Code Flow.
- * No redirect URI, no client secret, no local server needed.
+ * No Azure portal, no app registration, no client secret needed.
  *
- * Setup (one time):
- *   1. Go to https://portal.azure.com → App registrations → New registration
- *   2. Name it whatever, select "Personal Microsoft accounts only"
- *   3. Leave Redirect URI blank, click Register
- *   4. Go to Authentication → Advanced → "Allow public client flows" → Yes → Save
- *   5. Copy the Application (client) ID
- *   6. Run: MICROSOFT_CLIENT_ID=your-id npm run auth:microsoft
+ * Just run:
+ *   npm run auth:microsoft
+ *
+ * Then open the URL on your phone, enter the code, sign in. Done.
  */
 
 const fs = require("fs");
 const path = require("path");
 const fetch = require("node-fetch");
 
-const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
+// Microsoft Graph Command Line Tools - Microsoft's own public client ID
+// used by their Graph PowerShell SDK. No Azure app registration needed.
+const DEFAULT_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e";
+const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID || DEFAULT_CLIENT_ID;
 const TOKENS_PATH = path.join(__dirname, "tokens.json");
 const SCOPES = "Tasks.ReadWrite offline_access";
 
-// Use /consumers for personal Microsoft accounts
-const DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
-const TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
-
-if (!CLIENT_ID) {
-	console.error("\nError: Set MICROSOFT_CLIENT_ID environment variable.\n");
-	console.error("Usage:");
-	console.error("  MICROSOFT_CLIENT_ID=your-app-id npm run auth:microsoft\n");
-	console.error("Don't have a client ID yet? Quick setup:");
-	console.error("  1. Go to https://portal.azure.com → App registrations → New registration");
-	console.error("  2. Name: 'MagicMirror', Account type: 'Personal Microsoft accounts only'");
-	console.error("  3. Leave Redirect URI blank → Register");
-	console.error("  4. Authentication → Advanced → Allow public client flows → Yes → Save");
-	console.error("  5. Copy the Application (client) ID from the Overview page\n");
-	process.exit(1);
-}
+// Use /common so it works with both personal and work accounts
+const DEVICE_CODE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/devicecode";
+const TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -124,10 +111,16 @@ async function main() {
 
 		fs.writeFileSync(TOKENS_PATH, JSON.stringify(tokens, null, 2));
 
+		// Save client ID alongside tokens so node_helper can use it
+		const tokensWithClient = {
+			...tokens,
+			client_id: CLIENT_ID
+		};
+		fs.writeFileSync(TOKENS_PATH, JSON.stringify(tokensWithClient, null, 2));
+
 		console.log("Success! Tokens saved.");
-		console.log(`\nAdd this to your MagicMirror config.js:\n`);
-		console.log(`  microsoftClientId: "${CLIENT_ID}"\n`);
-		console.log("Your mirror can now access your Microsoft To Do tasks.\n");
+		console.log("\nYour mirror can now access your Microsoft To Do tasks.");
+		console.log("No config changes needed - just start MagicMirror.\n");
 	} catch (error) {
 		console.error(`\nError: ${error.message}\n`);
 		process.exit(1);
