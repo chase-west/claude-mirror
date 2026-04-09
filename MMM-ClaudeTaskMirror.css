@@ -3,7 +3,8 @@
 .claude-task-mirror {
 	color: #ddd;
 	font-family: "Roboto Condensed", Arial, sans-serif;
-	max-width: 500px;
+	width: 100%;
+	text-align: center;
 }
 
 /* Loading & Error States */
@@ -71,6 +72,8 @@
 /* Task List */
 .ctm-task-list {
 	flex: 1;
+	display: inline-block;
+	text-align: left;
 }
 
 .ctm-tasks {
@@ -193,6 +196,8 @@
 .ctm-insights-panel {
 	border-top: 1px solid rgba(255, 255, 255, 0.08);
 	padding-top: 15px;
+	display: inline-block;
+	text-align: left;
 }
 
 .ctm-insights-section {
