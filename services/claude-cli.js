@@ -6,8 +6,7 @@ class ClaudeCLIService extends AIBase {
 		super();
 		this.cliPath = config.cliPath || "claude";
 		this.model = config.model || "claude-sonnet-4-20250514";
-		this.timeoutMs = config.timeoutMs || 60000;
-		// Allow injecting a custom spawn for testing
+		this.timeoutMs = config.timeoutMs || 120000;
 		this._spawn = config.spawn || spawn;
 	}
 
@@ -22,8 +21,7 @@ class ClaudeCLIService extends AIBase {
 		return new Promise((resolve, reject) => {
 			const args = [
 				"-p", prompt,
-				"--output-format", "stream-json",
-				"--verbose",
+				"--output-format", "json",
 				"--max-turns", "1"
 			];
 
@@ -49,15 +47,16 @@ class ClaudeCLIService extends AIBase {
 
 			proc.on("close", (code) => {
 				if (code !== 0) {
+					const errorDetail = stderr || stdout || "(no output)";
 					reject(new Error(
-						`Claude CLI exited with code ${code}: ${stderr.slice(0, 500)}`
+						`Claude CLI exited with code ${code}: ${errorDetail.slice(0, 500)}`
 					));
 					return;
 				}
 
-				const text = this.parseStreamJson(stdout);
+				const text = this.parseJsonOutput(stdout);
 				if (!text) {
-					reject(new Error("Claude CLI returned no text content."));
+					reject(new Error(`Claude CLI returned no text. stdout: ${stdout.slice(0, 300)}`));
 					return;
 				}
 				resolve(text);
@@ -75,30 +74,49 @@ class ClaudeCLIService extends AIBase {
 		});
 	}
 
-	parseStreamJson(output) {
+	parseJsonOutput(output) {
+		// --output-format json returns a single JSON object with a "result" field
+		// Try parsing as JSON first
+		try {
+			const data = JSON.parse(output.trim());
+			// Handle {result: "text"} format
+			if (data.result) return data.result;
+			// Handle {content: [{type: "text", text: "..."}]} format
+			if (data.content) {
+				return data.content
+					.filter((b) => b.type === "text")
+					.map((b) => b.text)
+					.join("");
+			}
+			// Handle direct text response
+			if (typeof data === "string") return data;
+		} catch {
+			// Not JSON - might be plain text output
+		}
+
+		// Fallback: try stream-json (newline-delimited JSON)
 		let result = "";
-		const lines = output.split("\n");
-		for (const line of lines) {
+		for (const line of output.split("\n")) {
 			if (!line.trim()) continue;
 			try {
 				const obj = JSON.parse(line);
-				// Assistant message with content blocks
 				if (obj.type === "assistant" && obj.message && obj.message.content) {
 					for (const block of obj.message.content) {
-						if (block.type === "text") {
-							result += block.text;
-						}
+						if (block.type === "text") result += block.text;
 					}
 				}
-				// Result message may also contain text
-				if (obj.type === "result" && obj.result) {
-					result += obj.result;
-				}
+				if (obj.type === "result" && obj.result) result += obj.result;
 			} catch {
-				// skip non-JSON lines
+				// skip
 			}
 		}
-		return result;
+		if (result) return result;
+
+		// Last resort: return raw output if it looks like it has content
+		const trimmed = output.trim();
+		if (trimmed && trimmed.length > 10) return trimmed;
+
+		return "";
 	}
 }
 

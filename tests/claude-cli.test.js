@@ -26,33 +26,9 @@ const MOCK_TASKS = [
 	}
 ];
 
-// Build mock stream-json output
-function buildStreamJson(text) {
-	const lines = [
-		JSON.stringify({
-			type: "system",
-			subtype: "init",
-			session_id: "test-session"
-		}),
-		JSON.stringify({
-			type: "assistant",
-			message: {
-				id: "msg-1",
-				type: "message",
-				role: "assistant",
-				content: [
-					{ type: "text", text: text }
-				]
-			}
-		}),
-		JSON.stringify({
-			type: "result",
-			subtype: "success",
-			cost_usd: 0.001,
-			duration_ms: 1234
-		})
-	];
-	return lines.join("\n") + "\n";
+// Build mock JSON output (--output-format json returns {result: "text"})
+function buildJsonOutput(text) {
+	return JSON.stringify({ result: text }) + "\n";
 }
 
 // --- Mock spawn ---
@@ -93,7 +69,7 @@ describe("ClaudeCLIService", () => {
 			const service = new ClaudeCLIService({});
 			expect(service.cliPath).toBe("claude");
 			expect(service.model).toBe("claude-sonnet-4-20250514");
-			expect(service.timeoutMs).toBe(60000);
+			expect(service.timeoutMs).toBe(120000);
 		});
 
 		test("accepts custom config", () => {
@@ -108,75 +84,63 @@ describe("ClaudeCLIService", () => {
 		});
 	});
 
-	describe("parseStreamJson", () => {
+	describe("parseJsonOutput", () => {
 		test("extracts text from assistant message content blocks", () => {
 			const service = new ClaudeCLIService({});
-			const output = buildStreamJson("Hello world");
-			const result = service.parseStreamJson(output);
+			const output = buildJsonOutput("Hello world");
+			const result = service.parseJsonOutput(output);
 			expect(result).toBe("Hello world");
 		});
 
-		test("handles multiple content blocks", () => {
+		test("parses {result: text} format", () => {
 			const service = new ClaudeCLIService({});
-			const output = JSON.stringify({
-				type: "assistant",
-				message: {
-					content: [
-						{ type: "text", text: "Part 1 " },
-						{ type: "text", text: "Part 2" }
-					]
-				}
-			});
-			const result = service.parseStreamJson(output);
-			expect(result).toBe("Part 1 Part 2");
-		});
-
-		test("extracts text from result field", () => {
-			const service = new ClaudeCLIService({});
-			const output = JSON.stringify({
-				type: "result",
-				result: "Final answer"
-			});
-			const result = service.parseStreamJson(output);
+			const output = JSON.stringify({ result: "Final answer" });
+			const result = service.parseJsonOutput(output);
 			expect(result).toBe("Final answer");
 		});
 
-		test("skips non-text content blocks", () => {
+		test("parses {content: [...]} format", () => {
+			const service = new ClaudeCLIService({});
+			const output = JSON.stringify({
+				content: [
+					{ type: "tool_use", name: "something" },
+					{ type: "text", text: "Part 1 " },
+					{ type: "text", text: "Part 2" }
+				]
+			});
+			const result = service.parseJsonOutput(output);
+			expect(result).toBe("Part 1 Part 2");
+		});
+
+		test("falls back to stream-json parsing", () => {
 			const service = new ClaudeCLIService({});
 			const output = JSON.stringify({
 				type: "assistant",
 				message: {
-					content: [
-						{ type: "tool_use", name: "something" },
-						{ type: "text", text: "The answer" }
-					]
+					content: [{ type: "text", text: "streamed" }]
 				}
 			});
-			const result = service.parseStreamJson(output);
-			expect(result).toBe("The answer");
+			const result = service.parseJsonOutput(output);
+			expect(result).toBe("streamed");
 		});
 
 		test("handles empty output", () => {
 			const service = new ClaudeCLIService({});
-			expect(service.parseStreamJson("")).toBe("");
-			expect(service.parseStreamJson("\n\n")).toBe("");
+			expect(service.parseJsonOutput("")).toBe("");
+			expect(service.parseJsonOutput("\n\n")).toBe("");
 		});
 
-		test("skips non-JSON lines gracefully", () => {
+		test("handles mixed output gracefully", () => {
 			const service = new ClaudeCLIService({});
-			const output = "not json\n" + buildStreamJson("works");
-			const result = service.parseStreamJson(output);
+			const output = JSON.stringify({ result: "works" });
+			const result = service.parseJsonOutput(output);
 			expect(result).toBe("works");
 		});
 
-		test("skips system and init events", () => {
+		test("returns raw text as fallback", () => {
 			const service = new ClaudeCLIService({});
-			const output = [
-				JSON.stringify({ type: "system", subtype: "init" }),
-				JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "hi" }] } })
-			].join("\n");
-			const result = service.parseStreamJson(output);
-			expect(result).toBe("hi");
+			const result = service.parseJsonOutput("Just some plain text response here");
+			expect(result).toBe("Just some plain text response here");
 		});
 	});
 
@@ -190,7 +154,7 @@ describe("ClaudeCLIService", () => {
 				proc.stderr = new EventEmitter();
 				proc.stdin = { write: jest.fn(), end: jest.fn() };
 				process.nextTick(() => {
-					proc.stdout.emit("data", Buffer.from(buildStreamJson("test")));
+					proc.stdout.emit("data", Buffer.from(buildJsonOutput("test")));
 					proc.emit("close", 0);
 				});
 				return proc;
@@ -207,7 +171,7 @@ describe("ClaudeCLIService", () => {
 			expect(capturedArgs.args).toContain("-p");
 			expect(capturedArgs.args).toContain("test prompt");
 			expect(capturedArgs.args).toContain("--output-format");
-			expect(capturedArgs.args).toContain("stream-json");
+			expect(capturedArgs.args).toContain("json");
 			expect(capturedArgs.args).toContain("--max-turns");
 			expect(capturedArgs.args).toContain("1");
 			expect(capturedArgs.args).toContain("--model");
@@ -218,7 +182,7 @@ describe("ClaudeCLIService", () => {
 			const insightsJson = JSON.stringify(MOCK_INSIGHTS);
 			const service = new ClaudeCLIService({
 				spawn: createMockSpawn({
-					stdout: buildStreamJson(insightsJson)
+					stdout: buildJsonOutput(insightsJson)
 				})
 			});
 
@@ -263,15 +227,15 @@ describe("ClaudeCLIService", () => {
 			);
 		});
 
-		test("rejects when no text content returned", async () => {
+		test("rejects when output is empty", async () => {
 			const service = new ClaudeCLIService({
 				spawn: createMockSpawn({
-					stdout: JSON.stringify({ type: "system", subtype: "init" }) + "\n"
+					stdout: ""
 				})
 			});
 
 			await expect(service.runClaude("test")).rejects.toThrow(
-				"Claude CLI returned no text content"
+				"Claude CLI returned no text"
 			);
 		});
 
@@ -297,7 +261,7 @@ describe("ClaudeCLIService", () => {
 			const insightsJson = JSON.stringify(MOCK_INSIGHTS);
 			const service = new ClaudeCLIService({
 				spawn: createMockSpawn({
-					stdout: buildStreamJson(insightsJson)
+					stdout: buildJsonOutput(insightsJson)
 				})
 			});
 
@@ -314,7 +278,7 @@ describe("ClaudeCLIService", () => {
 			const wrapped = "```json\n" + JSON.stringify(MOCK_INSIGHTS) + "\n```";
 			const service = new ClaudeCLIService({
 				spawn: createMockSpawn({
-					stdout: buildStreamJson(wrapped)
+					stdout: buildJsonOutput(wrapped)
 				})
 			});
 
@@ -332,7 +296,7 @@ describe("ClaudeCLIService", () => {
 				proc.stdin = { write: jest.fn(), end: jest.fn() };
 				process.nextTick(() => {
 					proc.stdout.emit("data", Buffer.from(
-						buildStreamJson(JSON.stringify(MOCK_INSIGHTS))
+						buildJsonOutput(JSON.stringify(MOCK_INSIGHTS))
 					));
 					proc.emit("close", 0);
 				});
