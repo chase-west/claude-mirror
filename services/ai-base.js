@@ -292,28 +292,26 @@ ${knownPatterns}
 Respond with ONLY valid JSON:
 {
   "priorityOrder": [
-    { "title": "exact task title", "reason": "short rec - what to do, how to approach it, or context" }
+    { "title": "exact task title", "reason": "short rec under 10 words" }
   ],
   "timeBlocks": [
-    { "time": "9:00 AM", "task": "exact task title", "reason": "why this slot" }
+    { "time": "9:00 AM", "task": "exact task title" }
   ],
   "suggestedTasks": [
     { "title": "suggested task name", "reason": "why - based on what thought or context", "source": "thought or pattern that triggered this" }
   ],
-  "patterns": [
-    "behavioral pattern for internal tracking"
-  ],
+  "patterns": ["pattern"],
   "insights": [],
-  "dailyReminder": ""
+  "dailyReminder": "one practical reminder"
 }
 
 Rules:
-- priorityOrder: Top 5 tasks ranked by urgency. "reason" = a brief practical recommendation for that specific task (e.g. "start with the outline first" or "due in 2 days - block 2 hours")
-- timeBlocks: Schedule up to 5 tasks into specific times today based on when this user actually gets things done (use completion history). Be realistic.
-- suggestedTasks: 1-5 tasks the user might need to do based on their thoughts, notes, and patterns. These are NOT existing tasks - they are NEW suggestions. Think about what logically follows from their thoughts (e.g. if they wrote "need to study for calc exam" suggest "Make calc study guide" or "Review chapters 5-7"). Be specific and actionable.
+- priorityOrder: Top 5 tasks ranked by urgency. "reason" = brief practical tip for that task
+- timeBlocks: REQUIRED. Schedule the top 5 tasks into specific hours TODAY starting from ${timeStr}. Format time as "9:00 AM", "10:30 AM" etc. Use "task" field with the EXACT task title only - no descriptions.
+- suggestedTasks: 1-5 NEW task suggestions based on the user's thoughts, notes, and patterns. Be specific and actionable.
 - patterns: 1-3 for internal tracking only (not displayed). Refine previous patterns or add new ones.
-- insights: leave empty (not used)
-- dailyReminder: One short practical reminder about the most urgent/important thing (e.g. "speech due in 2 days" or "3 overdue tasks"). No motivational fluff - just facts.
+- insights: MUST be empty array []
+- dailyReminder: One short factual reminder about the most urgent thing (e.g. "speech due in 8 days" or "2 overdue tasks")
 - Use EXACT task titles from the task list for priorityOrder and timeBlocks
 - Keep reasons under 10 words - this is a mirror, space is tight`;
 	}
