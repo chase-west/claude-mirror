@@ -34,7 +34,14 @@ Module.register("MMM-ClaudeTaskMirror", {
 		showTimeBlocks: true,
 		showPatterns: false,
 		showDailyReminder: true,
+		showThoughts: true,
+		showSuggestedTasks: true,
+		maxThoughts: 3,
+		maxSuggestions: 3,
 		animateIn: true,
+
+		// Thoughts API
+		thoughtsApiPort: 8189,
 
 		// Update intervals (ms)
 		taskUpdateInterval: 5 * 60 * 1000,    // 5 minutes
@@ -49,6 +56,7 @@ Module.register("MMM-ClaudeTaskMirror", {
 		Log.info("[MMM-ClaudeTaskMirror] Starting module...");
 		this.tasks = [];
 		this.insights = null;
+		this.thoughts = [];
 		this.lastTaskUpdate = null;
 		this.lastInsightUpdate = null;
 		this.error = null;
@@ -70,6 +78,11 @@ Module.register("MMM-ClaudeTaskMirror", {
 			case "INSIGHTS_UPDATED":
 				this.insights = payload.insights;
 				this.lastInsightUpdate = payload.timestamp;
+				this.updateDom(this.config.animateIn ? 300 : 0);
+				break;
+
+			case "THOUGHTS_UPDATED":
+				this.thoughts = payload.thoughts || [];
 				this.updateDom(this.config.animateIn ? 300 : 0);
 				break;
 
@@ -98,17 +111,26 @@ Module.register("MMM-ClaudeTaskMirror", {
 			wrapper.appendChild(this.buildDailyReminder());
 		}
 
-		// Main content: tasks and insights side by side on wide mirrors,
-		// stacked on narrow ones
+		// Main content
 		const content = document.createElement("div");
 		content.className = "ctm-content";
 
 		// Task list
 		content.appendChild(this.buildTaskList());
 
+		// Suggested tasks from AI
+		if (this.config.showSuggestedTasks && this.insights && this.insights.suggestedTasks && this.insights.suggestedTasks.length > 0) {
+			content.appendChild(this.buildSuggestedTasks());
+		}
+
 		// AI insights panel
 		if (this.config.showInsights && this.insights) {
 			content.appendChild(this.buildInsightsPanel());
+		}
+
+		// Recent thoughts
+		if (this.config.showThoughts && this.thoughts && this.thoughts.length > 0) {
+			content.appendChild(this.buildThoughtsSection());
 		}
 
 		wrapper.appendChild(content);
@@ -365,5 +387,94 @@ Module.register("MMM-ClaudeTaskMirror", {
 		}
 
 		return panel;
+	},
+
+	buildSuggestedTasks: function () {
+		const container = document.createElement("div");
+		container.className = "ctm-suggested-tasks";
+
+		const header = document.createElement("div");
+		header.className = "ctm-section-header";
+		header.innerHTML = "<i class=\"fa fa-plus-circle\"></i> Suggested";
+		container.appendChild(header);
+
+		const list = document.createElement("ul");
+		list.className = "ctm-suggestions";
+
+		const suggestions = this.insights.suggestedTasks.slice(0, this.config.maxSuggestions);
+		suggestions.forEach((suggestion) => {
+			const item = document.createElement("li");
+			item.className = "ctm-suggestion";
+
+			const title = document.createElement("span");
+			title.className = "ctm-suggestion-title";
+			title.textContent = suggestion.title;
+			item.appendChild(title);
+
+			if (suggestion.reason) {
+				const reason = document.createElement("span");
+				reason.className = "ctm-suggestion-reason";
+				reason.textContent = suggestion.reason;
+				item.appendChild(reason);
+			}
+
+			list.appendChild(item);
+		});
+
+		container.appendChild(list);
+		return container;
+	},
+
+	buildThoughtsSection: function () {
+		const container = document.createElement("div");
+		container.className = "ctm-thoughts-section";
+
+		const header = document.createElement("div");
+		header.className = "ctm-section-header";
+		header.innerHTML = "<i class=\"fa fa-comment-o\"></i> Thoughts";
+		container.appendChild(header);
+
+		const list = document.createElement("div");
+		list.className = "ctm-thoughts";
+
+		const recent = this.thoughts.slice(-this.config.maxThoughts).reverse();
+		recent.forEach((thought) => {
+			const item = document.createElement("div");
+			item.className = "ctm-thought";
+
+			const text = document.createElement("span");
+			text.className = "ctm-thought-text";
+			// Truncate long thoughts for mirror display
+			const maxLen = 80;
+			text.textContent = thought.text.length > maxLen
+				? thought.text.substring(0, maxLen) + "..."
+				: thought.text;
+			item.appendChild(text);
+
+			const time = document.createElement("span");
+			time.className = "ctm-thought-time";
+			time.textContent = this.formatRelativeTime(thought.timestamp);
+			item.appendChild(time);
+
+			list.appendChild(item);
+		});
+
+		container.appendChild(list);
+		return container;
+	},
+
+	formatRelativeTime: function (timestamp) {
+		const now = new Date();
+		const date = new Date(timestamp);
+		const diffMs = now - date;
+		const diffMins = Math.floor(diffMs / 60000);
+		const diffHours = Math.floor(diffMs / 3600000);
+		const diffDays = Math.floor(diffMs / 86400000);
+
+		if (diffMins < 1) return "just now";
+		if (diffMins < 60) return diffMins + "m ago";
+		if (diffHours < 24) return diffHours + "h ago";
+		if (diffDays === 1) return "yesterday";
+		return diffDays + "d ago";
 	}
 });

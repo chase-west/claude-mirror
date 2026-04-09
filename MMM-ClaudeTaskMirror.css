@@ -185,6 +185,71 @@
 	color: rgba(255, 255, 255, 0.6);
 }
 
+/* Suggested Tasks */
+.ctm-suggested-tasks {
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	padding-top: 6px;
+}
+
+.ctm-suggestions {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.ctm-suggestion {
+	display: flex;
+	flex-direction: column;
+	padding: 3px 0;
+	padding-left: 14px;
+}
+
+.ctm-suggestion-title {
+	font-size: 11px;
+	color: rgba(160, 210, 255, 0.8);
+	line-height: 1.3;
+}
+
+.ctm-suggestion-reason {
+	font-size: 9px;
+	color: rgba(255, 255, 255, 0.25);
+	margin-top: 1px;
+}
+
+/* Thoughts Section */
+.ctm-thoughts-section {
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	padding-top: 6px;
+}
+
+.ctm-thoughts {
+	padding: 0;
+	margin: 0;
+}
+
+.ctm-thought {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 2px 0;
+}
+
+.ctm-thought-text {
+	font-size: 10px;
+	color: rgba(255, 255, 255, 0.45);
+	font-style: italic;
+	line-height: 1.3;
+	flex: 1;
+	min-width: 0;
+}
+
+.ctm-thought-time {
+	font-size: 8px;
+	color: rgba(255, 255, 255, 0.15);
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
 /* Hide insights and patterns sections */
 .ctm-insight-list,
 .ctm-pattern-list {
